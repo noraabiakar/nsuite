@@ -13,6 +13,7 @@
 #include <arbor/profile/profiler.hpp>
 #include <arbor/simple_sampler.hpp>
 #include <arbor/simulation.hpp>
+#include <arbor/symmetric_recipe.hpp>
 #include <arbor/recipe.hpp>
 #include <arbor/version.hpp>
 
@@ -40,16 +41,20 @@ void write_trace_json(std::string fname, const arb::trace_data<double>& trace);
 // Generate a cell.
 arb::mc_cell branch_cell(arb::cell_gid_type gid, const cell_parameters& params);
 
-class ring_recipe: public arb::recipe {
+class ring_tile: public arb::tile {
 public:
-    ring_recipe(ring_params params):
-        num_cells_(params.num_cells),
+    ring_tile(ring_params params):
+        num_cells_per_tile_(params.num_cells / params.num_ranks),
+        num_tiles_(params.num_ranks),
         min_delay_(params.min_delay),
         params_(params)
     {}
 
+    cell_size_type num_tiles() const override {
+        return num_tiles_;
+    }
     cell_size_type num_cells() const override {
-        return num_cells_;
+        return num_cells_per_tile_;
     }
 
     arb::util::unique_any get_cell_description(cell_gid_type gid) const override {
@@ -80,12 +85,13 @@ public:
         const auto s = params_.ring_size;
         const auto group = gid/s;
         const auto group_start = s*group;
-        const auto group_end = std::min(group_start+s, num_cells_);
+        const auto group_end = std::min(group_start+s, num_cells_per_tile_);
         cell_gid_type src = gid==group_start? group_end-1: gid-1;
         cons.push_back(arb::cell_connection({src, 0}, {gid, 0}, event_weight_, min_delay_));
 
         // Used to pick source cell for a connection.
-        std::uniform_int_distribution<cell_gid_type> dist(0, num_cells_-2);
+        // source can be from any cell, not just the cells on this tile
+        std::uniform_int_distribution<cell_gid_type> dist(0, params_.num_cells -2);
         // Used to pick delay for a connection.
         std::uniform_real_distribution<float> delay_dist(0, 2*min_delay_);
         auto src_gen = std::mt19937(gid);
@@ -107,7 +113,7 @@ public:
     // This generates a single event that will kick start the spiking on the sub-ring.
     std::vector<arb::event_generator> event_generators(cell_gid_type gid) const override {
         std::vector<arb::event_generator> gens;
-        if (gid%params_.ring_size == 0) {
+        if ((gid%num_cells_per_tile_)%params_.ring_size == 0) {
             gens.push_back(
                 arb::explicit_generator(
                     arb::pse_vector{{{gid, 0}, 1.0, event_weight_}}));
@@ -130,7 +136,8 @@ public:
     }
 
 private:
-    cell_size_type num_cells_;
+    cell_size_type num_cells_per_tile_;
+    cell_size_type num_tiles_;
     double min_delay_;
     ring_params params_;
 
@@ -191,15 +198,26 @@ int main(int argc, char** argv) {
             resources.num_threads = arbenv::thread_concurrency();
         }
 
+        auto params = read_options(argc, argv);
+
 #ifdef ARB_MPI_ENABLED
         arbenv::with_mpi guard(argc, argv, false);
         resources.gpu_id = arbenv::find_private_gpu(MPI_COMM_WORLD);
-        auto context = arb::make_context(resources, MPI_COMM_WORLD);
-        root = arb::rank(context) == 0;
 #else
         resources.gpu_id = arbenv::default_gpu();
-        auto context = arb::make_context(resources);
 #endif
+        auto context = arb::make_context(resources);
+
+        if(params.dryrun) {
+            context = arb::make_context(resources, arb::dry_run_info(params.num_ranks, params.num_cells / params.num_ranks));
+        }
+#ifdef ARB_MPI_ENABLED
+        else {
+            context = arb::make_context(resources, MPI_COMM_WORLD);
+            root = arb::rank(context) == 0;
+        }
+#endif
+        arb_assert(arb::num_ranks(context)==params.num_ranks);
 
 #ifdef ARB_PROFILE_ENABLED
         arb::profile::profiler_initialize(context);
@@ -213,13 +231,12 @@ int main(int argc, char** argv) {
             std::cout << "ranks:    " << num_ranks(context) << "\n" << std::endl;
         }
 
-        auto params = read_options(argc, argv);
-
         arb::profile::meter_manager meters;
         meters.start(context);
 
         // Create an instance of our recipe.
-        ring_recipe recipe(params);
+        auto tile = std::make_unique<ring_tile>(params);
+        arb::symmetric_recipe recipe(std::move(tile));
         cell_stats stats(recipe);
         if (root) std::cout << stats << "\n";
 
