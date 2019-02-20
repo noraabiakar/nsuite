@@ -67,23 +67,23 @@ fi
 # TODO: this has to go into the configuration environment setup scripts
 export ARB_NUM_THREADS=$[ $ns_threads_per_core * $ns_cores_per_socket ]
 
-msg "---- Platform ----"
-msg "configuration:     $ns_environment"
-msg "platform:          $ns_system ($(uname -or))"
-msg "cores per socket:  $ns_cores_per_socket"
-msg "threads per core:  $ns_threads_per_core"
-msg "threads:           $ARB_NUM_THREADS"
-msg "sockets:           $ns_sockets"
-msg "mpi:               $ns_with_mpi"
+echo "---- Platform ----"
+echo "configuration:     $ns_environment"
+echo "platform:          $ns_system ($(uname -or))"
+echo "cores per socket:  $ns_cores_per_socket"
+echo "threads per core:  $ns_threads_per_core"
+echo "threads:           $ARB_NUM_THREADS"
+echo "sockets:           $ns_sockets"
+echo "mpi:               $ns_with_mpi"
 echo
 
-msg "---- Application ----"
-msg "Arbor:      $run_arb"
-msg "NEURON:     $run_nrn"
-msg "CoreNeuron: $run_corenrn"
+echo "---- Application ----"
+echo "Arbor:      $run_arb"
+echo "NEURON:     $run_nrn"
+echo "CoreNeuron: $run_corenrn"
 echo
 
-msg "---- Benchmarks ----"
+echo "---- Benchmarks ----"
 echo
 
 mkdir -p "$ns_input_path"
@@ -96,7 +96,7 @@ do
     for config in $configs
     do
 
-        msg $model-$config
+        echo $model-$config
         echo
 
         model_input_path="$ns_input_path/benchmarks/$model/$config"
@@ -106,15 +106,15 @@ do
 
         # todo: hoist check for env file outside loop, which would unset any simulation engine that has not been installed
         if [ "$run_arb" == "true" ]; then
-            msg "  arbor"
+            echo "  arbor"
             "$model_input_path/run_arb.sh"
         fi
         if [ "$run_nrn" == "true" ]; then
-            msg "  neuron"
+            echo "  neuron"
             "$model_input_path/run_nrn.sh"
         fi
         if [ "$run_corenrn" == "true" ]; then
-            msg "  coreneuron"
+            echo "  coreneuron"
             "$model_input_path/run_corenrn.sh"
         fi
     done

@@ -61,7 +61,7 @@ done
 # Run a user supplied configuration script if it was provided with the -e flag.
 # This will make changes to the configuration variables ns_* set in environment()
 if [ "$ns_environment" != "" ]; then
-    msg "using additional configuration: $ns_environment"
+    echo "using additional configuration: $ns_environment"
     if [ ! -f "$ns_environment" ]; then
         err "file '$ns_environment' not found"
         exit 1
@@ -70,41 +70,41 @@ if [ "$ns_environment" != "" ]; then
     echo
 fi
 
-msg "---- TARGETS ----"
-msg "build arbor:       $ns_build_arbor"
-msg "build neuron:      $ns_build_neuron"
-msg "build coreneuron:  $ns_build_coreneuron"
+echo "---- TARGETS ----"
+echo "build arbor:       $ns_build_arbor"
+echo "build neuron:      $ns_build_neuron"
+echo "build coreneuron:  $ns_build_coreneuron"
 echo
-msg "---- PATHS ----"
-msg "working path:  $ns_base_path"
-msg "install path:  $ns_install_path"
-msg "build path:    $ns_build_path"
-msg "input path:    $ns_input_path"
-msg "output path:   $ns_output_path"
+echo "---- PATHS ----"
+echo "working path:  $ns_base_path"
+echo "install path:  $ns_install_path"
+echo "build path:    $ns_build_path"
+echo "input path:    $ns_input_path"
+echo "output path:   $ns_output_path"
 echo
-msg "---- SYSTEM ----"
-msg "system:        $ns_system"
-msg "using mpi:     $ns_with_mpi"
-msg "C compiler:    $ns_cc"
-msg "C++ compiler:  $ns_cxx"
-msg "python:        $ns_python"
+echo "---- SYSTEM ----"
+echo "system:        $ns_system"
+echo "using mpi:     $ns_with_mpi"
+echo "C compiler:    $ns_cc"
+echo "C++ compiler:  $ns_cxx"
+echo "python:        $ns_python"
 echo
-msg "---- ARBOR ----"
-msg "repo:          $ns_arb_repo"
-msg "branch:        $ns_arb_branch"
-msg "arch:          $ns_arb_arch"
-msg "gpu:           $ns_arb_with_gpu"
-msg "vectorize:     $ns_arb_vectorize"
+echo "---- ARBOR ----"
+echo "repo:          $ns_arb_repo"
+echo "branch:        $ns_arb_branch"
+echo "arch:          $ns_arb_arch"
+echo "gpu:           $ns_arb_with_gpu"
+echo "vectorize:     $ns_arb_vectorize"
 echo
-msg "---- NEURON ----"
-msg "tarball:       $ns_nrn_tarball"
-msg "url:           $ns_nrn_url"
-msg "repo:          $ns_nrn_git_repo"
-msg "branch:        $ns_nrn_branch"
+echo "---- NEURON ----"
+echo "tarball:       $ns_nrn_tarball"
+echo "url:           $ns_nrn_url"
+echo "repo:          $ns_nrn_git_repo"
+echo "branch:        $ns_nrn_branch"
 echo
-msg "---- CoreNEURON ----"
-msg "repo:          $ns_cnrn_git_repo"
-msg "sha:           $ns_cnrn_sha"
+echo "---- CoreNEURON ----"
+echo "repo:          $ns_cnrn_git_repo"
+echo "sha:           $ns_cnrn_sha"
 
 mkdir -p "$ns_build_path"
 
@@ -119,15 +119,15 @@ cd "$ns_base_path"
 cd "$ns_base_path"
 
 echo
-msg "Installation finished"
+echo "Installation finished"
 echo
 
 # Find and record the python and binary paths.
 find_paths python_path site-packages
 find_paths bin_path bin
 
-msg "python paths: $python_path"
-msg "bin paths:    $bin_path"
+echo "python paths: $python_path"
+echo "bin paths:    $bin_path"
 
 #config_path="${ns_base_path}/config"
 #config_file="${config_path}/env.sh"

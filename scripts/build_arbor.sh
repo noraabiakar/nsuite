@@ -11,20 +11,20 @@ if [ ! -f "$arb_checked_flag" ]; then
     rm -rf "$arb_repo_path"
 
     # clone the repository
-    msg "ARBOR: cloning from $ns_arb_repo"
+    echo "ARBOR: cloning from $ns_arb_repo"
     git clone "$ns_arb_repo" "$arb_repo_path" --recursive &>> "$out"
     [ $? != 0 ] && exit_on_error "see ${out}"
 
     # check out the branch
     if [ "$ns_arb_branch" != "master" ]; then
-        msg "ARBOR: check out branch $ns_arb_branch"
+        echo "ARBOR: check out branch $ns_arb_branch"
         cd "$arb_repo_path"
         git checkout "$ns_arb_branch" &>> "$out"
         [ $? != 0 ] && exit_on_error "see ${out}"
     fi
     touch "${arb_checked_flag}"
 else
-    msg "ARBOR: repository has already downloaded"
+    echo "ARBOR: repository has already downloaded"
 fi
 
 # remove old build files
@@ -37,27 +37,27 @@ cmake_args="$cmake_args -DARB_WITH_MPI=$ns_with_mpi"
 cmake_args="$cmake_args -DARB_WITH_GPU=$ns_arb_with_gpu"
 cmake_args="$cmake_args -DARB_ARCH=$ns_arb_arch"
 cmake_args="$cmake_args -DARB_VECTORIZE=$ns_arb_vectorize"
-msg "ARBOR: cmake $cmake_args"
+echo "ARBOR: cmake $cmake_args"
 cmake "$arb_repo_path" $cmake_args &>> "$out"
 [ $? != 0 ] && exit_on_error "see ${out}"
 
 cd "$arb_build_path"
 
-msg "ARBOR: build"
+echo "ARBOR: build"
 make -j $ns_makej examples &>> "$out"
 [ $? != 0 ] && exit_on_error "see ${out}"
 
-msg "ARBOR: install"
+echo "ARBOR: install"
 make install &>> "$out"
 [ $? != 0 ] && exit_on_error "see ${out}"
 
 src_path="$arb_build_path/bin"
 dst_path="$ns_install_path/bin"
 
-msg "ARBOR: library build completed"
+echo "ARBOR: library build completed"
 cd $ns_base_path
 
-msg "ARBOR: building benchmark models"
+echo "ARBOR: building benchmark models"
 
 # Required for the CMake scripts that build the benchmarks to
 # find the Arbor library that was built and installed above.
@@ -68,28 +68,28 @@ benchmarks="busyring"
 for bench in $benchmarks
 do
     echo
-    msg "ARBOR: $bench benchmark"
+    echo "ARBOR: $bench benchmark"
     source_path="${ns_base_path}/benchmarks/engines/${bench}/arbor"
     build_path="${ns_build_path}/${bench}_arbor"
     mkdir -p "$build_path"
     cd "$build_path"
 
-    msg "ARBOR: cmake"
+    echo "ARBOR: cmake"
     # Set install path to the source path.
     # This will install the "run" executable in the source path.
     cmake "$source_path" -DCMAKE_INSTALL_PREFIX:PATH="$source_path" &>> "$out"
     [ $? != 0 ] && exit_on_error "see ${out}"
 
-    msg "ARBOR: make"
+    echo "ARBOR: make"
     make -j $ns_makej &>> "$out"
     [ $? != 0 ] && exit_on_error "see ${out}"
 
-    msg "ARBOR: install"
+    echo "ARBOR: install"
     make install &>> "$out"
     [ $? != 0 ] && exit_on_error "see ${out}"
 done
 
 cd $ns_base_path
 
-msg "ARBOR: saving environment"
+echo "ARBOR: saving environment"
 save_environment arbor
