@@ -25,6 +25,7 @@ struct cell_parameters {
 
     // The number of synapses per cell.
     unsigned synapses = 1;
+    unsigned gap_junctions = 1;
 };
 
 struct ring_params {
@@ -33,9 +34,11 @@ struct ring_params {
     std::string name = "default";
     unsigned num_cells = 10;
     unsigned ring_size = 10;
+    unsigned num_gj_in_ring = 15;
     double min_delay = 10;
     double duration = 100;
     double dt = 0.025;
+    bool match_cell_group_size = false;
     bool record_voltage = false;
     std::string odir = ".";
     cell_parameters cell;
@@ -65,16 +68,19 @@ ring_params read_options(int argc, char** argv) {
     param_from_json(params.name, "name", json);
     param_from_json(params.num_cells, "num-cells", json);
     param_from_json(params.ring_size, "ring-size", json);
+    param_from_json(params.num_gj_in_ring, "num-gj-in-ring", json);
     param_from_json(params.duration, "duration", json);
     param_from_json(params.dt, "dt", json);
     param_from_json(params.min_delay, "min-delay", json);
     param_from_json(params.record_voltage, "record", json);
+    param_from_json(params.match_cell_group_size, "match-cell-group-size", json);
     param_from_json(params.odir, "odir", json);
     param_from_json(params.cell.max_depth, "depth", json);
     param_from_json(params.cell.branch_probs, "branch-probs", json);
     param_from_json(params.cell.compartments, "compartments", json);
     param_from_json(params.cell.lengths, "lengths", json);
     param_from_json(params.cell.synapses, "synapses", json);
+    param_from_json(params.cell.gap_junctions, "gap-junction-sites", json);
 
     if (!json.empty()) {
         for (auto it=json.begin(); it!=json.end(); ++it) {

@@ -103,6 +103,44 @@ public:
         return cons;
     }
 
+    cell_size_type num_gap_junction_sites(cell_gid_type gid)  const {
+        return 1;
+    }
+
+    // Each ring has num_gj_in_ring gap junctions. GJs are bidirectional, each one needs to be added from both cells
+    // GJs are added round robin. All GJs of a cell are added to a single site and have zero weight.
+    std::vector<arb::gap_junction_connection> gap_junctions_on(cell_gid_type gid) const override{
+        std::vector<arb::gap_junction_connection> cons;
+
+        const auto s = params_.ring_size;
+        const auto group = gid/s;
+        const auto group_start = s*group;
+        const auto group_end = std::min(group_start+s, num_cells_);
+        const auto group_size = group_end - group_start;
+
+        cell_gid_type prev = gid==group_start? group_end-1: gid-1;
+        cell_gid_type next = gid==group_end-1? group_start: gid+1;
+
+        const auto gj_sites = params_.cell.gap_junctions;
+
+        const auto n_gj = params_.num_gj_in_ring;
+        const auto ring_gj = n_gj / group_size;
+        const auto leftover_gj = n_gj % group_size;
+
+        for (unsigned i=0; i < ring_gj; i++) {
+            cons.push_back(arb::gap_junction_connection({next, (next + i) % gj_sites}, {gid, (gid + i) % gj_sites}, 0));
+            cons.push_back(arb::gap_junction_connection({prev, (prev + i) % gj_sites}, {gid, (gid + i) % gj_sites}, 0));
+        }
+
+        if (gid < leftover_gj) {
+            cons.push_back(arb::gap_junction_connection({next, 0}, {gid, 0}, 0));
+        }
+        if (prev < leftover_gj) {
+            cons.push_back(arb::gap_junction_connection({prev, 0}, {gid, 0}, 0));
+        }
+        return cons;
+    }
+
     // Return one event generator on the first cell of each ring.
     // This generates a single event that will kick start the spiking on the sub-ring.
     std::vector<arb::event_generator> event_generators(cell_gid_type gid) const override {
@@ -223,10 +261,11 @@ int main(int argc, char** argv) {
         cell_stats stats(recipe);
         if (root) std::cout << stats << "\n";
 
-        //arb::partition_hint_map hints;
-        //hints[cell_kind::cable1d_neuron].cpu_group_size = 4;
-        //auto decomp = arb::partition_load_balance(recipe, context, hints);
-        auto decomp = arb::partition_load_balance(recipe, context);
+        arb::partition_hint_map hints;
+        if (params.match_cell_group_size) {
+            hints[cell_kind::cable1d_neuron].cpu_group_size = params.num_gj_in_ring;
+        }
+        auto decomp = arb::partition_load_balance(recipe, context, hints);
 
         // Construct the model.
         arb::simulation sim(recipe, decomp, context);
@@ -381,7 +420,10 @@ arb::mc_cell branch_cell(arb::cell_gid_type gid, const cell_parameters& params) 
     // and subsequent spikes, which makes it easier to tune firing rate.
     cell.add_synapse({0, 0.5}, "expsyn");
 
-    // Add additional synapses to random locations on the cell.
+    // Add gap_junction to the soma
+    cell.add_gap_junction({0, 0.5});
+
+    // Add additional synapses and gap_junction sites to random locations on the cell.
     std::uniform_real_distribution<double> pos_dis(0, 1);
     std::uniform_int_distribution<cell_lid_type> seg_dis(1, nsec-1);
     for (unsigned i=1u; i<params.synapses; ++i) {
@@ -389,6 +431,13 @@ arb::mc_cell branch_cell(arb::cell_gid_type gid, const cell_parameters& params) 
         const auto pos = pos_dis(gen);
 
         cell.add_synapse({seg, pos}, "expsyn");
+    }
+
+    for (unsigned i=1u; i<params.gap_junctions; ++i) {
+        const auto seg = seg_dis(gen);
+        const auto pos = pos_dis(gen);
+
+        cell.add_gap_junction({seg, pos});
     }
 
     return cell;
