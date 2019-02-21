@@ -146,36 +146,56 @@ private:
 
 struct cell_stats {
     using size_type = unsigned;
+    int nranks = 1;
     size_type ncells = 0;
     size_type nsegs = 0;
     size_type ncomp = 0;
 
-    cell_stats(arb::recipe& r) {
+    cell_stats(arb::recipe& r, ring_params params) {
 #ifdef ARB_MPI_ENABLED
-        int nranks, rank;
-        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-        MPI_Comm_size(MPI_COMM_WORLD, &nranks);
-        ncells = r.num_cells();
-        size_type cells_per_rank = ncells/nranks;
-        size_type b = rank*cells_per_rank;
-        size_type e = (rank==nranks-1)? ncells: (rank+1)*cells_per_rank;
-        size_type nsegs_tmp = 0;
-        size_type ncomp_tmp = 0;
-        for (size_type i=b; i<e; ++i) {
-            auto c = arb::util::any_cast<arb::mc_cell>(r.get_cell_description(i));
-            nsegs_tmp += c.num_segments();
-            ncomp_tmp += c.num_compartments();
+        if (!params.dryrun) {
+            int rank;
+            MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+            MPI_Comm_size(MPI_COMM_WORLD, &nranks);
+            ncells = r.num_cells();
+            size_type cells_per_rank = ncells/nranks;
+            size_type b = rank*cells_per_rank;
+            size_type e = (rank==nranks-1)? ncells: (rank+1)*cells_per_rank;
+            size_type nsegs_tmp = 0;
+            size_type ncomp_tmp = 0;
+            for (size_type i=b; i<e; ++i) {
+                auto c = arb::util::any_cast<arb::mc_cell>(r.get_cell_description(i));
+                nsegs_tmp += c.num_segments();
+                ncomp_tmp += c.num_compartments();
+            }
+            MPI_Allreduce(&nsegs_tmp, &nsegs, 1, MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
+            MPI_Allreduce(&ncomp_tmp, &ncomp, 1, MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
         }
-        MPI_Allreduce(&nsegs_tmp, &nsegs, 1, MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&ncomp_tmp, &ncomp, 1, MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
 #else
-        ncells = r.num_cells();
-        for (size_type i=0; i<ncells; ++i) {
-            auto c = arb::util::any_cast<arb::mc_cell>(r.get_cell_description(i));
-            nsegs += c.num_segments();
-            ncomp += c.num_compartments();
+        if (!params.dryrun) {
+            ncells = r.num_cells();
+            for (size_type i = 0; i < ncells; ++i) {
+                auto c = arb::util::any_cast<arb::mc_cell>(r.get_cell_description(i));
+                nsegs += c.num_segments();
+                ncomp += c.num_compartments();
+            }
         }
 #endif
+        else {
+            nranks = params.num_ranks;
+            ncells = params.num_cells;
+
+            size_type ncells_per_rank = ncells/nranks;
+
+            for (size_type i = 0; i < ncells_per_rank; ++i) {
+                auto c = arb::util::any_cast<arb::mc_cell>(r.get_cell_description(i));
+                nsegs += c.num_segments();
+                ncomp += c.num_compartments();
+            }
+
+            nsegs *= params.num_ranks;
+            ncomp *= params.num_ranks;
+        }
     }
 
     friend std::ostream& operator<<(std::ostream& o, const cell_stats& s) {
@@ -237,7 +257,7 @@ int main(int argc, char** argv) {
         // Create an instance of our recipe.
         auto tile = std::make_unique<ring_tile>(params);
         arb::symmetric_recipe recipe(std::move(tile));
-        cell_stats stats(recipe);
+        cell_stats stats(recipe, params);
         if (root) std::cout << stats << "\n";
 
         //arb::partition_hint_map hints;
