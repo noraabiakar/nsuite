@@ -34,23 +34,26 @@ class cell_parameters:
             self.compartments = [20, 2]
             self.lengths      = [200, 20]
             self.synapses     = 1
+            self.gap_junctions= 1
 
 class model_parameters:
     def __repr__(self):
         s = "parameters\n" \
             "  name         : {0:>10s}\n" \
             "  cells        : {1:10d}\n" \
-            "  ring size    : {2:10d}\n" \
-            "  duration     : {3:10.0f} ms\n" \
-            "  min delay    : {4:10.0f} ms\n" \
-            "  dt           : {5:10.0f} ms\n" \
-            .format(self.name, self.num_cells, self.ring_size, self.duration, self.min_delay, self.dt)
+            "  gj_in_ring   : {2:10d}\n" \
+            "  ring size    : {3:10d}\n" \
+            "  duration     : {4:10.0f} ms\n" \
+            "  min delay    : {5:10.0f} ms\n" \
+            "  dt           : {6:10.0f} ms\n" \
+            .format(self.name, self.num_cells, self.num_gj_in_ring, self.ring_size, self.duration, self.min_delay, self.dt)
         s+= str(self.cell)
         return s
 
     def __init__(self, filename=None):
         self.name      = 'default'
         self.num_cells = 20
+        self.num_gj_in_ring = 15
         self.duration  = 100
         self.dt        = 0.025
         self.min_delay = 10

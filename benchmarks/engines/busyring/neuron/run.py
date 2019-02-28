@@ -49,6 +49,12 @@ class ring_network:
             nc.threshold = 10
             self.pc.cell(gid, nc) # Associate the cell with this host and gid
 
+        for gid in self.gids:
+            self.cells[gid].soma_assign_v()
+
+        for gid in self.gids[:-1]:
+            self.cells[gid].add_point_gap(self.cells[gid + 1], 0)
+
         total_comp = 0
         total_seg = 0
         for c in self.cells:
@@ -107,6 +113,11 @@ class ring_network:
                 con.weight[0] = 0
                 con.delay = delay
                 self.connections.append(con)
+
+        #for i in range(2):
+        # this method must be called after all the calls to source_var() and target_var()
+        # and before initializing the simulation
+        self.pc.setup_transfer()
 
 # hoc setup
 nrn.hoc_setup()
