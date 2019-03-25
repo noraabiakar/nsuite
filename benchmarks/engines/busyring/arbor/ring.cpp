@@ -128,8 +128,8 @@ public:
         const auto leftover_gj = n_gj % group_size;
 
         for (unsigned i=0; i < ring_gj; i++) {
-            cons.push_back(arb::gap_junction_connection({next, (next + i) % gj_sites}, {gid, (gid + i) % gj_sites}, 0));
-            cons.push_back(arb::gap_junction_connection({prev, (prev + i) % gj_sites}, {gid, (gid + i) % gj_sites}, 0));
+            cons.push_back(arb::gap_junction_connection({next, 0}, {gid, 0}, 0));
+            cons.push_back(arb::gap_junction_connection({prev, 0}, {gid, 0}, 0));
         }
 
         if (gid < leftover_gj) {
@@ -431,13 +431,6 @@ arb::mc_cell branch_cell(arb::cell_gid_type gid, const cell_parameters& params) 
         const auto pos = pos_dis(gen);
 
         cell.add_synapse({seg, pos}, "expsyn");
-    }
-
-    for (unsigned i=1u; i<params.gap_junctions; ++i) {
-        const auto seg = seg_dis(gen);
-        const auto pos = pos_dis(gen);
-
-        cell.add_gap_junction({seg, pos});
     }
 
     return cell;

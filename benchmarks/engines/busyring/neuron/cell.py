@@ -122,34 +122,8 @@ class branchy_cell:
             sec_seg = self.pc.gid2cell(self.gid).soma(0.5)
             self.pc.source_var(sec_seg._ref_v, self.gid, sec=sec_seg.sec)
 
-    # Add a gap_junction between self and other
-    # the voltages of 'self' and 'other' need to be visible to the other cell's half gap junction
-    # 'source_var' assigns a voltage variable to a unique id
-    # 'target_var' attaches a voltage variable (identified using its unique id) to another voltage variable
-    # to expose the voltage of 'self' to the half gap_junction at 'other':
-    # 1. assign the voltage of a sec on 'self' to a unique id (cell gid) using 'source_var'
-    # 2. attach the voltage of the half gap_junction at 'other' to the voltage of a sec of 'self'
-    #    using 'target_var' and the unique id (gid) of a sec of 'self'
-    def add_point_gap(self, other, ggap, loc1 = 0.5, loc2 = 0.5, name_sec1=None, name_sec2=None):  #ggap in nS
-        if self.pc.gid_exists(self.gid):
-            self.mk_halfgap(other, ggap, name_sec1, loc1)
-
-        if self.pc.gid_exists(other.gid):
-            other.mk_halfgap(self, ggap, name_sec2, loc2)
-
-    # assign the voltage at a sec to the gid of the cell
-    # create half gap_junction at a sec, and assign its variables: vgap and g
-    # vgap gets the voltage assigned to the gid of the 'other' cell
-    # g gets ggap
-    def mk_halfgap(self, other, ggap, name_sec, loc):
-        # sec seg
-        #if name_sec==None:
+    def make_halfgap(self, other, ggap):
         sec_seg = self.pc.gid2cell(self.gid).soma(0.5)
-        # else:
-        #     sec_seg = self.pc.gid2cell(self.gid).sections[name_sec](loc)
-
-        # assign the voltage at the soma to the gid of the cell
-        # self.pc.source_var(sec_seg._ref_v, self.gid, sec=sec_seg.sec)
 
         # create half gap_junction on the soma
         hg = h.HalfGap(sec_seg)

@@ -27,6 +27,7 @@ class ring_network:
         self.min_delay = params.min_delay
         self.cell_params = params.cell
         self.ring_size = params.ring_size
+        self.num_gj_in_ring = params.num_gj_in_ring
         self.synapses_per_cell = params.cell.synapses
         self.cells = []
 
@@ -49,11 +50,34 @@ class ring_network:
             nc.threshold = 10
             self.pc.cell(gid, nc) # Associate the cell with this host and gid
 
+        # Attach the voltage at the soma to an integer: gid
         for gid in self.gids:
             self.cells[gid].soma_assign_v()
 
-        for gid in self.gids[:-1]:
-            self.cells[gid].add_point_gap(self.cells[gid + 1], 0)
+        # Add gap junctions
+        for gid in self.gids:
+            s = self.ring_size
+            group = gid // s
+            group_start = s * group
+            group_end = min(group_start+s, self.num_cells)
+            group_size = group_end - group_start
+
+            prev = group_end-1 if gid==group_start else gid-1
+            next = group_start if gid==group_end-1 else gid+1
+
+            n_gj = self.num_gj_in_ring
+            ring_gj = n_gj // group_size
+            leftover_gj = n_gj % group_size
+
+            for i in range(ring_gj) :
+                self.cells[next].make_halfgap(self.cells[gid], 0)
+                self.cells[prev].make_halfgap(self.cells[gid], 0)
+
+            if gid < leftover_gj :
+                self.cells[next].make_halfgap(self.cells[gid],0)
+
+            if prev < leftover_gj :
+                self.cells[prev].make_halfgap(self.cells[gid],0)
 
         total_comp = 0
         total_seg = 0
