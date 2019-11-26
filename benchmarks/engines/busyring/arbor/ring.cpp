@@ -162,7 +162,7 @@ struct cell_stats {
         size_type ncomp_tmp = 0;
         for (size_type i=b; i<e; ++i) {
             auto c = arb::util::any_cast<arb::cable_cell>(r.get_cell_description(i));
-            nbranch_tmp += c.num_branches();
+            nbranch_tmp += c.num_segments();
             ncomp_tmp += c.num_compartments();
         }
         MPI_Allreduce(&nbranch_tmp, &nbranch, 1, MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
@@ -171,7 +171,7 @@ struct cell_stats {
         ncells = r.num_cells();
         for (size_type i=0; i<ncells; ++i) {
             auto c = arb::util::any_cast<arb::cable_cell>(r.get_cell_description(i));
-            nbranch += c.num_branches();
+            nbranch += c.num_segments();
             ncomp += c.num_compartments();
         }
 #endif
@@ -335,77 +335,189 @@ double interp(const std::array<T,2>& r, unsigned i, unsigned n) {
     return r[0] + p*(r1-r0);
 }
 
+arb::sample_tree read_swc(const std::string& path) {
+    std::ifstream f(path);
+    if (!f) throw std::runtime_error("unable to open SWC file: "+path);
+
+    return arb::swc_as_sample_tree(arb::parse_swc_file(f));
+}
+
 arb::cable_cell branch_cell(arb::cell_gid_type gid, const cell_parameters& params) {
-    arb::sample_tree tree;
+    auto tree = read_swc("/home/abiakarn/git/nsuite_master/benchmarks/engines/busyring/arbor/purkinje_mouse_original.swc");
 
-    // Add soma.
-    double soma_radius = 12.6157/2.0;
-    tree.append(arb::mnpos, {{0,0,0,soma_radius}, 1}); // For area of 500 μm².
+    arb::label_dict dict;
+    using arb::reg::tagged;
+    dict.set("soma", tagged(1));
+    dict.set("axon", tagged(2));
 
-    std::vector<std::vector<unsigned>> levels;
-    levels.push_back({0});
+    std::vector<arb::msample> axon_samples = {
+            {{0, 0, 0,   0.5}, 2},
+            {{0, 0, 17,  0.5}, 2},
+            {{0, 0, 21,  0.5}, 2},
+            {{0, 0, 121, 0.5}, 2},
+            {{0, 0, 125, 0.5}, 2},
+            {{0, 0, 225, 0.5}, 2},
+            {{0, 0, 229, 0.5}, 2},
+            {{0, 0, 329, 0.5}, 2},
+            {{0, 0, 333, 0.5}, 2},
+            {{0, 0, 433, 0.5}, 2}
+    };
+    tree.append(0, axon_samples);
+    arb::morphology morpho(tree);
 
-    // Standard mersenne_twister_engine seeded with gid.
-    std::mt19937 gen(gid);
-    std::uniform_real_distribution<double> dis(0, 1);
+    arb::cable_cell c = make_cable_cell(morpho, dict, false);
 
-    double dend_radius = 0.5; // Diameter of 1 μm for each cable.
+    // Paint mechanisms on the soma
+    {
+        arb::mechanism_desc Leak("Leak");
+        Leak["e"] = -61;
+        Leak["gmax"] = 0.001;
 
-    double dist_from_soma = soma_radius;
-    for (unsigned i=0; i<params.max_depth; ++i) {
-        // Branch prob at this level.
-        double bp = interp(params.branch_probs, i, params.max_depth);
-        // Length at this level.
-        double l = interp(params.lengths, i, params.max_depth);
-        // Number of compartments at this level.
-        unsigned nc = std::round(interp(params.compartments, i, params.max_depth));
+        arb::mechanism_desc Nav1_6("Nav1_6");
+        Nav1_6["gbar"] = 0.18596749324385001;
 
-        std::vector<unsigned> sec_ids;
-        for (unsigned sec: levels[i]) {
-            for (unsigned j=0; j<2; ++j) {
-                if (dis(gen)<bp) {
-                    auto z = dist_from_soma;
-                    auto p = tree.append(sec, {{0,0,z,dend_radius}, 3});
-                    if (nc>1) {
-                        auto dz = l/nc;
-                        for (unsigned k=1; k<nc; ++k) {
-                            p = tree.append(p, {{0,0,z+k*dz, dend_radius}, 3});
-                        }
-                    }
-                    sec_ids.push_back(tree.append(p, {{0,0,z+l,dend_radius}, 3}));
-                }
-            }
-        }
-        if (sec_ids.empty()) {
-            break;
-        }
-        levels.push_back(sec_ids);
+        arb::mechanism_desc Kv1_1("Kv1_1");
+        Kv1_1["gbar"] = 0.0029172006269699998;
 
-        dist_from_soma += l;
+        arb::mechanism_desc Kv3_4("Kv3_4");
+        Kv3_4["gkbar"] = 0.069972751903779995;
+
+        arb::mechanism_desc Kir2_3("Kir2_3");
+        Kir2_3["gkbar"] = 2.322613156e-05;
+
+        arb::mechanism_desc Kca1_1("Kca1_1");
+        Kca1_1["gbar"] = 0.01197387128516;
+
+        arb::mechanism_desc Kca2_2("Kca2_2");
+        Kca2_2["gkbar"] = 0.0013377920303699999;
+
+        arb::mechanism_desc Kca3_1("Kca3_1");
+        Kca3_1["gkbar"] = 0.01388910824701;
+
+        arb::mechanism_desc Cav2_1("Cav2_1");
+        Cav2_1["pcabar"] = 0.00020306777733000001;
+
+        arb::mechanism_desc Cav3_1("Cav3_1");
+        Cav3_1["pcabar"] = 5.1352684600000001e-06;
+
+        arb::mechanism_desc Cav3_2("Cav3_2");
+        Cav3_2["gcabar"] = 0.00070742370991999995;
+
+        arb::mechanism_desc Cav3_3("Cav3_3");
+        Cav3_3["pcabar"] = 0.00034648446559000002;
+
+        arb::mechanism_desc HCN1("HCN1");
+        HCN1["gbar"] = 0.0016391306742300001;
+
+        arb::mechanism_desc cdp5("cdp5");
+        cdp5["TotalPump"] = 2e-08;
+
+        arb::mechanism_desc kv15("Kv1_5");
+        kv15["gKur"] = 0.00011449636712999999;
+
+        arb::mechanism_desc kv33("Kv3_3");
+        kv33["gbar"] = 0.01054618632087;
+
+        arb::mechanism_desc kv43("Kv4_3");
+        kv43["gkbar"] = 0.00147529033238;
+
+        c.paint("soma", Leak);
+        c.paint("soma", Nav1_6);
+        c.paint("soma", Kv1_1);
+        c.paint("soma", Kv3_4);
+        c.paint("soma", Kir2_3);
+        c.paint("soma", Kca1_1);
+        c.paint("soma", Kca2_2);
+        c.paint("soma", Kca3_1);
+        c.paint("soma", Cav2_1);
+        c.paint("soma", Cav3_1);
+        c.paint("soma", Cav3_2);
+        c.paint("soma", Cav3_3);
+        c.paint("soma", HCN1);
+        c.paint("soma", cdp5);
+
+        c.paint("soma", kv15);
+        c.paint("soma", kv33);
+        c.paint("soma", kv43);
     }
 
-    arb::label_dict d;
+    // Paint mechanisms on the axon
+    {
+        arb::mechanism_desc Leak("Leak");
+        Leak["e"] = -61;
+        Leak["gmax"] = 0.00029999999999999997;
 
-    using arb::reg::tagged;
-    d.set("soma",      tagged(1));
-    d.set("dendrites", join(tagged(3), tagged(4)));
+        arb::mechanism_desc Nav1_6("Nav1_6");
+        Nav1_6["gbar"] = 0.027565014930900002;
 
-    arb::cable_cell cell(arb::morphology(tree, true), d, true);
+        arb::mechanism_desc Kv3_4("Kv3_4");
+        Kv3_4["gkbar"] = 0.029949599085;
 
-    cell.paint("soma", "hh");
-    cell.paint("dendrites", "pas");
-    cell.default_parameters.axial_resistivity = 100; // [Ω·cm]
+        arb::mechanism_desc Cav2_1("Cav2_1");
+        Cav2_1["pcabar"] = 0.00026695621961;
+
+        arb::mechanism_desc Cav3_1("Cav3_1");
+        Cav3_1["pcabar"] = 1.487097008e-05;
+
+        arb::mechanism_desc cdp5("cdp5");
+        cdp5["TotalPump"] = 4.9999999999999998e-07;
+
+        c.paint("axon", Leak);
+        c.paint("axon", Nav1_6);
+        c.paint("axon", Kv3_4);
+        c.paint("axon", Cav2_1);
+        c.paint("axon", Cav3_1);
+        c.paint("axon", cdp5);
+    }
+
+    // Set ion parameters, ra and cm on soma
+    arb::soma_segment* soma = c.soma();
+    soma->parameters.axial_resistivity = 122;
+    soma->parameters.membrane_capacitance = 0.0077000000000000002;
+
+//        soma->parameters.ion_data["k"].init_reversal_potential = -88; // not being read in Neuron
+    soma->parameters.ion_data["k"].init_int_concentration = 54.4;
+    soma->parameters.ion_data["k"].init_ext_concentration = 2.5;
+
+//        soma->parameters.ion_data["na"].init_reversal_potential = 80; // not being read in Neuron
+    soma->parameters.ion_data["na"].init_int_concentration = 10;
+    soma->parameters.ion_data["na"].init_ext_concentration = 140;
+
+//        soma->parameters.ion_data["ca"].init_reversal_potential = 137.5; // not used anywhere
+    soma->parameters.ion_data["ca"].init_int_concentration = 0.00005000;
+    soma->parameters.ion_data["ca"].init_ext_concentration = 2.0;
+
+    // Set ion parameters, ra and cm on axon
+    arb::cable_segment* axon = c.cable(c.num_segments()-1);
+    axon->parameters.axial_resistivity = 122;
+    axon->parameters.membrane_capacitance = 0.0077000000000000002;
+
+    axon->parameters.ion_data["k"].init_int_concentration = 54.4;
+    axon->parameters.ion_data["k"].init_ext_concentration = 2.5;
+
+    axon->parameters.ion_data["na"].init_int_concentration = 10;
+    axon->parameters.ion_data["na"].init_ext_concentration = 140;
+
+    axon->parameters.ion_data["ca"].init_int_concentration = 0.00005000;
+    axon->parameters.ion_data["ca"].init_ext_concentration = 2.0;
+
+    // Discretize dendrites: 1 compartment per branch; axon: 9 compartments
+    for (std::size_t i=1; i<c.num_segments(); ++i) {
+        arb::cable_segment* branch = c.cable(i);
+        branch->set_compartments(10);
+    }
+    c.cable(c.num_segments()-1)->set_compartments(90);
 
     // Add spike threshold detector at the soma.
-    cell.place(arb::mlocation{0,0}, arb::threshold_detector{10});
+    c.place(arb::mlocation{0,0}, arb::threshold_detector{10});
 
     // Add a synapse to the mid point of the first dendrite.
-    cell.place(arb::mlocation{1, 0.5}, "expsyn");
+    c.place(arb::mlocation{1, 0.5}, "expsyn");
 
     // Add additional synapses that will not be connected to anything.
     for (unsigned i=1u; i<params.synapses; ++i) {
-        cell.place(arb::mlocation{1, 0.5}, "expsyn");
+        c.place(arb::mlocation{1, 0.5}, "expsyn");
     }
 
-    return cell;
+    return c;
 }
