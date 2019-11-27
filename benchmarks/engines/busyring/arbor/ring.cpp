@@ -46,7 +46,14 @@ public:
         num_cells_(params.num_cells),
         min_delay_(params.min_delay),
         params_(params)
-    {}
+    {
+        gprop.default_parameters = arb::neuron_parameter_defaults;
+        gprop.default_parameters.temperature_K = 35 + 273.15;
+        gprop.default_parameters.init_membrane_potential = -65;
+
+        gprop.default_parameters.reversal_potential_method["k"] = "nernst/k";
+        gprop.default_parameters.reversal_potential_method["na"] = "nernst/na";
+    }
 
     cell_size_type num_cells() const override {
         return num_cells_;
@@ -71,9 +78,7 @@ public:
     }
 
     arb::util::any get_global_properties(cell_kind kind) const override {
-        arb::cable_cell_global_properties prop;
-        prop.default_parameters = arb::neuron_parameter_defaults;
-        return prop;
+        return gprop;
     }
 
     // Each cell has one incoming connection, from cell with gid-1,
@@ -134,11 +139,15 @@ public:
 
         return arb::probe_info{id, kind, cell_probe_address{loc, kind}};
     }
+    void add_ion(const std::string& ion_name, int charge, double init_iconc, double init_econc, double init_revpot) {
+        gprop.add_ion(ion_name, charge, init_iconc, init_econc, init_revpot);
+    }
 
 private:
     cell_size_type num_cells_;
     double min_delay_;
     ring_params params_;
+    arb::cable_cell_global_properties gprop;
 
     float event_weight_ = 0.01;
 };
@@ -226,6 +235,9 @@ int main(int argc, char** argv) {
 
         // Create an instance of our recipe.
         ring_recipe recipe(params);
+        recipe.add_ion("h", 1, 1.0, 1.0, -34.4);
+        recipe.add_ion("no", 1, 1.0, 1.0, 0);
+
         cell_stats stats(recipe);
         if (root) std::cout << stats << "\n";
 

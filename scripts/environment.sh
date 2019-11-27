@@ -67,11 +67,11 @@ default_environment() {
     # Arbor specific
 
     ns_arb_git_repo=https://github.com/noraabiakar/arbor.git
-    ns_arb_branch=arbor-merged
+    ns_arb_branch=arbor-merged-simd
 
     ns_arb_arch=native
     ns_arb_with_gpu=OFF
-    ns_arb_vectorize=OFF
+    ns_arb_vectorize=ON
     ns_arb_xcompile_modcc=OFF
 
     # Neuron specific
