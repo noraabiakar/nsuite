@@ -239,6 +239,7 @@ int main(int argc, char** argv) {
         ring_recipe recipe(params);
         recipe.add_ion("h", 1, 1.0, 1.0, -34.4);
         recipe.add_ion("no", 1, 1.0, 1.0, 0);
+
         cell_stats stats(recipe);
         if (root) std::cout << stats << "\n";
 
