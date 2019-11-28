@@ -109,6 +109,7 @@ public:
             //const float delay = min_delay_;
             cons.push_back(
                 arb::cell_connection({src, 0}, {gid, i}, 0.f, delay));
+            std::cout << src << " -> " << gid << std::endl;
         }
 
         return cons;
@@ -150,7 +151,7 @@ private:
     ring_params params_;
     arb::cable_cell_global_properties gprop;
 
-    float event_weight_ = 0.01;
+    float event_weight_ = 0;
 };
 
 struct cell_stats {
@@ -258,7 +259,7 @@ int main(int argc, char** argv) {
             // the cell_member type points to (cell 0, probe 0)
             auto probe_id = cell_member_type{0, 0};
             // The schedule for sampling is 10 samples every 1 ms.
-            auto sched = arb::regular_schedule(0.1);
+            auto sched = arb::regular_schedule(params.dt);
             // Now attach the sampler at probe_id, with sampling schedule sched, writing to voltage
             sim.add_sampler(arb::one_probe(probe_id), sched, arb::make_simple_sampler(voltage));
         }
